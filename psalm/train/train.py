@@ -15,10 +15,9 @@
 #    limitations under the License.
 
 from psalm.train.train_datasets import *
-
+from psalm.eval.train_ego4d import DAVIS_Dataset, Ego_Train_Dataset
 from psalm.mask_config.config import Config
 from fvcore.common.config import CfgNode
-
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -132,7 +131,7 @@ class TrainingArguments(transformers.TrainingArguments):
         default=16,
         metadata={"help": "How many bits to use."}
     )
-    lora_enable: bool = False
+    lora_enable: bool = False  
     lora_r: int = 64
     lora_alpha: int = 16
     lora_dropout: float = 0.05
@@ -335,20 +334,24 @@ def make_unify_datamodule(tokenizer, data_args, training_args):
     data_ratio = data_args.data_ratio
     data_ratio = data_ratio.split('||')
     data_ratio = [int(data_) for data_ in data_ratio]
-    panoptic_coco_dataset = COCO_panoptic_dataset_random(json_path=data_args.panoptic_json_path, tokenizer=tokenizer,
+    # panoptic_coco_dataset = COCO_panoptic_dataset_random(json_path=data_args.panoptic_json_path, tokenizer=tokenizer,
+    #                                                          data_args=data_args)
+    # referring_json_path = [data_args.ref_coco_path, data_args.ref_coco_plus_path, data_args.ref_coco_g_path]
+    # refcoco_dataset = RefCOCO_dataset(json_path=referring_json_path, tokenizer=tokenizer, data_args=data_args)
+    # region_coco_dataset = COCO_interactive_dataset(json_path=data_args.region_json_path, tokenizer=tokenizer,
+    #                                                          data_args=data_args)
+    #增添我们自己的数据集
+    egoexo_dataset = Ego_Train_Dataset(json_path=data_args.region_json_path, tokenizer=tokenizer,
                                                              data_args=data_args)
-    referring_json_path = [data_args.ref_coco_path, data_args.ref_coco_plus_path, data_args.ref_coco_g_path]
-    refcoco_dataset = RefCOCO_dataset(json_path=referring_json_path, tokenizer=tokenizer, data_args=data_args)
-    region_coco_dataset = COCO_interactive_dataset(json_path=data_args.region_json_path, tokenizer=tokenizer,
-                                                             data_args=data_args)
-    mm_conv_json = os.path.join(data_args.mmconv_path,'LLaVA-Instruct-150K/llava_v1_5_mix665k_onlyMM_filtered.json')
-    mm_conv_dataset = MM_Conv_Dataset(data_path=mm_conv_json, tokenizer=tokenizer,
-                                                             data_args=data_args)
-    datasets = [panoptic_coco_dataset]*data_ratio[0] + [refcoco_dataset] * data_ratio[1] + [region_coco_dataset]*data_ratio[2] + [mm_conv_dataset]*data_ratio[3]
+    # mm_conv_json = os.path.join(data_args.mmconv_path,'LLaVA-Instruct-150K/llava_v1_5_mix665k_onlyMM_filtered.json')
+    # mm_conv_dataset = MM_Conv_Dataset(data_path=mm_conv_json, tokenizer=tokenizer,
+    #                                                          data_args=data_args)
+    # datasets = [panoptic_coco_dataset]*data_ratio[0] + [refcoco_dataset] * data_ratio[1] + [region_coco_dataset]*data_ratio[2] + [mm_conv_dataset]*data_ratio[3]
+    datasets = [egoexo_dataset]
     print(f'the dataset ratio is: {data_ratio}')
 
     # you can change 16 to your frequency sets, it represents how many samples to change tasks
-    train_dataset = UnifyDatasetSingleDatasetForBatch(datasets,data_ratio,16,fix_dataset_len=data_args.fix_dataset_len)
+    train_dataset = UnifyDatasetSingleDatasetForBatch(datasets,data_ratio,150000,fix_dataset_len=data_args.fix_dataset_len)
     print(f'total unify dataset number is {len(train_dataset)}')
     data_collator = DataCollatorForCOCODatasetV2(tokenizer=tokenizer)
     return dict(train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator)
@@ -368,16 +371,47 @@ def train():
 
     print('using model PSALM')
     # if not training_args.bf16:
+
+    # version1: not pretrained
+    '''
     model = PSALM.from_pretrained(
         model_args.model_name_or_path,
         mask_decoder_cfg=mask_cfg,
         add_cross_attn=True,
         cache_dir=training_args.cache_dir,
         **bnb_model_from_pretrained_args
-                )
+    )
+    model.is_train_mask_decode = False
     if not model.is_train_mask_decode:
         mask2former_ckpt = model_args.vision_tower if model_args.load_mask2former else None
         model.initial_mask_module(mask2former_ckpt)
+    '''
+
+    #v2: pretrained
+    model = PSALM.from_pretrained(
+        # model_args.model_name_or_path,
+        "/data/work2-gcp-europe-west4-a/yuqian_fu/Ego/huggingface/hub/PSALM",
+        mask_decoder_cfg=mask_cfg,
+        add_cross_attn=True,
+        cache_dir=training_args.cache_dir,
+        **bnb_model_from_pretrained_args
+                )
+    # print("model.is_train_mask_decode:", model.is_train_mask_decode)
+
+    # v3:失败了 因为不是基于llava_phi中的PSALM类初始化 会改变模型架构
+    # from psalm.model.builder import load_pretrained_model
+    # data_args.model_map_name = "psalm_video"
+    # _, model, _, _ = load_pretrained_model("/data/work2-gcp-europe-west4-a/yuqian_fu/Ego/huggingface/hub/PSALM", None, "psalm_video",
+    #                                                                        model_args=data_args,
+    #                                                                        mask_config="./psalm/mask_config/maskformer2_swin_base_384_bs16_50ep.yaml",
+    #                                                                        device='cuda')
+    
+    '''
+    # Lora Train Version: (By default, it is trained wo lora)
+    #training_args.lora_enable = True           #Looks like not quiet working
+    if (training_args.lora_enable == True):
+        print("Attention: CUrrent we are using lora for training")
+    '''
 
     model.config.use_cache = False
 
@@ -450,16 +484,20 @@ def train():
     tokenizer.add_tokens("[SEG]")
     model.resize_token_embeddings(len(tokenizer))
     model.get_special_token(SEG=tokenizer("[SEG]", return_tensors='pt', add_special_tokens=False)['input_ids'], EOS=tokenizer.eos_token_id)
+    #定义数据集
     data_module = make_unify_datamodule(tokenizer=tokenizer, data_args=data_args, training_args=training_args)
     training_args.dataloader_drop_last = True
+    #初始化训练器
     trainer = LLaVATrainer(model=model,
                            tokenizer=tokenizer,
                            args=training_args,
                            **data_module)
+    #开始训练
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
         trainer.train(resume_from_checkpoint=True)
     else:
         trainer.train()
+    #保存权重
     trainer.save_state()
 
     model.config.use_cache = True

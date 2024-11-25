@@ -1,0 +1,30 @@
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10.*
+  - numpy
+  - pytorch==2.0.1
+  - torchvision==0.15.2
+  - torchaudio==2.0.2
+  - pytorch-cuda=11.8
+  - mkl=2024.0.0
+  - pip
+  - pip:
+    - git+https://github.com/facebookresearch/detectron2.git
+    - git+https://github.com/cocodataset/panopticapi.git
+    - git+https://github.com/mcordts/cityscapesScripts.git
+postinstall: |
+    export CUDA_HOME=/opt/modules/nvidia-cuda-11.8.0
+    echo $CUDA_HOME
+    export PATH=/opt/modules/nvidia-cuda-11.8.0/bin:$PATH
+    export LD_LIBRARY_PATH=/opt/modules/nvidia-cuda-11.8.0/lib64:$LD_LIBRARY_PATH
+    nvcc --version
+    which nvcc 
+    cd /home/yuqian_fu/Projects/PSALM
+    pip install -e .
+    pip install opencv-python addict
+    python3 -c "import torch; print(torch.cuda.is_available());print(torch.version.cuda);print(torch.__version__)"
+    cd psalm/model/mask_decoder/Mask2Former_Simplify/modeling/pixel_decoder/ops
+    sh make.sh

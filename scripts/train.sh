@@ -1,30 +1,29 @@
 export DISABLE_ADDMM_CUDA_LT=1
-deepspeed psalm/train/train.py \
+deepspeed --master_port=29505 psalm/train/train.py \
     --deepspeed ./scripts/zero2.json \
-    --model_name_or_path "/home/hk/yyma/data/phi-1_5_dev" \
+    --model_name_or_path "/data/work-gcp-europe-west4-a/yuqian_fu/Ego/huggingface/hub/phi-1_5_dev" \
     --version "llava_phi" \
-    --region_json_path "/path/to/coco_interactive_train_psalm.json" \
+    --region_json_path "/data/work-gcp-europe-west4-a/yuqian_fu/Ego/data_segswap/ExoQuery_SmallTrain_byorder.json" \
     --panoptic_json_path "/path/to/coco" \
     --ref_coco_path "/path/to/refcoco/refcoco_train.json" \
     --ref_coco_plus_path "/path/to/refcoco+/refcoco+_train.json" \
     --ref_coco_g_path "/path/to/refcocog/refcocog_train.json" \
-    --image_folder "/path/to/coco/train2017" \
+    --image_folder "/data/work-gcp-europe-west4-a/yuqian_fu/Ego/data_segswap" \
     --refcoco_image_folder "/path/to/coco/train2014" \
     --mmconv_path "/path/to/llava_1_5" \
-    --vision_tower "/path/to/model.pkl" \
-    --pretrain_mm_mlp_adapter "/path/to/mm_projector.bin" \
+    --vision_tower "/data/work-gcp-europe-west4-a/yuqian_fu/Ego/huggingface/hub/Mask2former/model_final_54b88a.pkl" \
+    --pretrain_mm_mlp_adapter "/data/work-gcp-europe-west4-a/yuqian_fu/Ego/huggingface/hub/PSALM_stage1/mm_projector.bin" \
     --mm_vision_select_layer -2 \
     --mm_use_im_start_end False \
     --mm_use_im_patch_token False \
     --fp16 True \
-    --output_dir ./checkpoint/PSALM \
-    --num_train_epochs 10 \
-    --per_device_train_batch_size 4 \
+    --output_dir /data/work-gcp-europe-west4-a/yuqian_fu/Ego/ExoQuery_241026_psalm_retrain_withPretrained_onsmallTrainJson_ep4_correctdata \
+    --num_train_epochs 4 \
+    --per_device_train_batch_size 12 \
     --per_device_eval_batch_size 2 \
     --gradient_accumulation_steps 1 \
     --evaluation_strategy "no" \
-    --save_strategy "steps" \
-    --save_steps 15000 \
+    --save_strategy "epoch" \
     --save_total_limit 1 \
     --learning_rate 6e-5 \
     --weight_decay 0. \
@@ -36,5 +35,5 @@ deepspeed psalm/train/train.py \
     --gradient_checkpointing True \
     --dataloader_num_workers 4 \
     --lazy_preprocess True \
-    --report_to none \
-    --seg_task 'panoptic'
+    --report_to tensorboard \
+    --seg_task 'region'

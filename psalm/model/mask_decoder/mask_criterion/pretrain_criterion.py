@@ -450,7 +450,15 @@ class hungarian_matcher_PSALM(HungarianMatcher):
             )
             C = C.reshape(num_queries, -1).cpu()
 
+
+            #debug:ValueError: matrix contains invalid numeric entries
+            if torch.isnan(C).any() or torch.isinf(C).any():
+                print("Invalid value in C", C)
+                C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)  # 将 NaN 替换为 0
+                C = torch.where(torch.isinf(C), torch.full_like(C, 1), C)  # inf替换成1
+            
             indices.append(linear_sum_assignment(C))
+            
 
         return [
             (torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))

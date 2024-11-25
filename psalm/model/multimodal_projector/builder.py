@@ -403,7 +403,8 @@ class SimpleResBlock(nn.Module):
 
 def build_vision_projector(config, delay_load=False, **kwargs):
     projector_type = getattr(config, 'mm_projector_type', 'linear')
-
+    
+    print("projector_type:", projector_type) #debug
     if projector_type == 'linear':
         return nn.Linear(config.mm_hidden_size, config.hidden_size)
 
@@ -424,6 +425,7 @@ def build_vision_projector(config, delay_load=False, **kwargs):
         return ResNetSwin(input_dim=input_dim,out_dim=out_dim)
 
     mlp_gelu_match = re.match(r'^mlp(\d+)x_gelu$', projector_type)
+    print("mlp_gelu_match:", mlp_gelu_match) #debug
     if mlp_gelu_match:
         mlp_depth = int(mlp_gelu_match.group(1))
         modules = [nn.Linear(config.mm_hidden_size, config.hidden_size)]

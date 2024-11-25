@@ -24,6 +24,8 @@ from psalm.model import *
 from psalm.constants import DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 from psalm.train.train_datasets import get_mask_config
 from psalm.model.language_model.llava_phi import PSALM, PSALMForDAVISEval
+from psalm.model.language_model.llava_phi_SSL_MultiCondition import PSALM_SSL_MultiCondition
+
 def load_pretrained_model(model_path, model_base, model_name, model_args, mask_config='./psalm/mask_config/maskformer2_swin_base_384_bs16_50ep.yaml', load_8bit=False, load_4bit=False, device_map="auto", device="cuda"):
 
     kwargs = {"device_map": 'cpu'}
@@ -44,15 +46,20 @@ def load_pretrained_model(model_path, model_base, model_name, model_args, mask_c
     print('loading segmentation model')
     model_map = {
         'psalm': PSALM,
-        'psalm_video': PSALMForDAVISEval
+        'psalm_video': PSALMForDAVISEval,
+        'psalm_SSL_MultiCondition': PSALM_SSL_MultiCondition
     }
     model_map_name = model_args.model_map_name
     mask_cfg = get_mask_config(mask_config)
     mask_cfg.MODEL.MASK_FORMER.SEG_TASK = model_args.seg_task if hasattr(model_args, 'seg_task') else 'instance'
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
+    #model_map_name = 'psalm'  # will lead to some bug
+    if(model_name == 'psalm_SSL_MultiCondition'):
+        model_map_name = model_name
     print(f'current model is {model_map_name}')
     model = model_map[model_map_name].from_pretrained(model_path, mask_decoder_cfg=mask_cfg, **kwargs)
+
 
     vision_tower = model.get_vision_tower()
     # if not vision_tower.is_loaded:

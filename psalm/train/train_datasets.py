@@ -56,6 +56,7 @@ class COCO_panoptic_dataset(Dataset):
 
         with open(self.panoptic_json_path) as f:
             data = json.load(f)
+
         self.data = data['annotations']
         self.tokenizer = tokenizer
         self.data_args = data_args
@@ -244,7 +245,17 @@ class COCO_interactive_dataset(COCO_panoptic_dataset):
         else:
             with open(json_path) as f:
                 data = json.load(f)
+
         self.data = data
+
+        '''
+        #xiugai
+        # for Stage1:
+        subset_size = len(self.data) // 20
+        self.data = random.sample(self.data, subset_size)
+        print('!!!!!!!!!!!!!!!!!!!!!!! Len of Stage1 Training;!!!!!!!!!!!!!!!!!!', len(self.data))
+        '''
+
         self.tokenizer = tokenizer
         self.data_args = data_args
         coco_class_ids = [
@@ -272,6 +283,8 @@ class COCO_interactive_dataset(COCO_panoptic_dataset):
             'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
             'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
         ]
+
+        #将原始 COCO 类别 ID 映射为连续的整数
         self.coco_id_to_cont_id = {coco_id: cont_id for cont_id, coco_id in enumerate(coco_class_ids)}
         self.coco_class_name = coco_class_name + ['background']
     def tokenizer_special_tokens(self, prompt, tokenizer, image_token_index=IMAGE_TOKEN_INDEX,
@@ -293,6 +306,8 @@ class COCO_interactive_dataset(COCO_panoptic_dataset):
         else:
             return input_ids
 
+    #class_name_id展平后的类别名称 tokens 和类别标记的 token 列表
+    #cls_indices：每个 token 对应的类别索引
     def preprocess_class_name(self, CLS_token='[CAT]'):
         tokenized = [self.tokenizer.encode(class_name, add_special_tokens=False) for class_name in self.coco_class_name]
         tokenized_class_names = [tokens + [self.tokenizer.encode(CLS_token, add_special_tokens=False)[0]] for tokens in
@@ -318,6 +333,8 @@ class COCO_interactive_dataset(COCO_panoptic_dataset):
         data_dict['annotations'] = data['anns']
         for annotation in data_dict['annotations']:
             annotation['bbox_mode'] = BoxMode.XYXY_ABS
+
+            #将coco中的原始id转化为连续的id
             if annotation['category_id'] in self.coco_id_to_cont_id:
                 annotation['category_id'] = self.coco_id_to_cont_id[annotation['category_id']]
             elif annotation['category_id'] in self.coco_id_to_cont_id.values():
@@ -613,6 +630,8 @@ class COCO_semantic_dataset(COCO_panoptic_dataset):
         data_dict['class_name_embedding_indices'] = class_name_embedding_indices
         return data_dict
 
+
+
 class RefCOCO_dataset(COCO_instance_dataset):
 
     def preprocess_referring_instruction(self,instruction, REFER_token='[SEG]'):
@@ -622,6 +641,7 @@ class RefCOCO_dataset(COCO_instance_dataset):
         token_refer_id = torch.tensor(tokenized)
 
         return token_refer_id
+    # 相较于interatitive类，新增加了<ref>
     def tokenizer_special_tokens(self, prompt, tokenizer, image_token_index=IMAGE_TOKEN_INDEX,
                                  seg_token_index=SEG_TOKEN_INDEX, cls_token_index=CLS_TOKEN_INDEX,
                                  region_token_index=REGION_TOKEN_INDEX,refer_token_index=REFER_TOKEN_INDEX, return_tensors=None):
@@ -963,8 +983,104 @@ class MM_Conv_Dataset(Dataset):
             crop_size = 1024
             data_dict['image'] = torch.zeros(3, crop_size, crop_size)
         return data_dict
+
+
+
+
 @dataclass
 class DataCollatorForCOCODatasetV2(object):
+    """Collate examples for supervised fine-tuning."""
+
+    tokenizer: transformers.PreTrainedTokenizer
+
+    #sequence表示列表、元组等有序对象，instances的类型表示为字典组成的有序列表，其中一个字典表示一帧图像
+    def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
+        input_ids, labels = tuple([instance[key] for instance in instances]
+                                  for key in ("input_ids", "labels"))
+        input_ids = torch.nn.utils.rnn.pad_sequence(
+            input_ids,
+            batch_first=True,
+            padding_value=self.tokenizer.pad_token_id)
+        labels = torch.nn.utils.rnn.pad_sequence(labels,
+                                                 batch_first=True,
+                                                 padding_value=IGNORE_INDEX)
+        input_ids = input_ids[:, :self.tokenizer.model_max_length]
+        labels = labels[:, :self.tokenizer.model_max_length]
+        batch = dict(
+            input_ids=input_ids,
+            labels=labels,
+            attention_mask=input_ids.ne(self.tokenizer.pad_token_id),
+        )
+        if 'image' in instances[0]:
+            images = [instance['image'] for instance in instances]
+            if all(x is not None and x.shape == images[0].shape for x in images):
+                batch['images'] = torch.stack(images)
+            else:
+                batch['images'] = images
+        
+        # add vp_images for EgoExo4D
+        if 'vp_image' in instances[0]:
+            vp_images = [instance['vp_image'] for instance in instances]
+            if all(x is not None and x.shape == vp_images[0].shape for x in vp_images):
+                batch['vp_images'] = torch.stack(vp_images)
+            else:
+                batch['vp_images'] = vp_images
+        for instance in instances:
+            for key in ['input_ids', 'labels', 'image']:
+                del instance[key]
+        batch['seg_info'] = [instance for instance in instances]
+
+        if 'dataset_type' in instances[0]:
+            batch['dataset_type'] = [instance['dataset_type'] for instance in instances]
+
+        if 'class_name_ids' in instances[0]:
+            class_name_ids = [instance['class_name_ids'] for instance in instances]
+            if any(x.shape != class_name_ids[0].shape for x in class_name_ids):
+                batch['class_name_ids'] = torch.nn.utils.rnn.pad_sequence(
+                    class_name_ids,
+                    batch_first=True,
+                    padding_value=-1,
+                )
+            else:
+                batch['class_name_ids'] = torch.stack(class_name_ids, dim=0)
+        if 'token_refer_id' in instances[0]:
+            token_refer_id = [instance['token_refer_id'] for instance in instances]
+            batch['token_refer_id'] = token_refer_id
+        if 'cls_indices' in instances[0]:
+            cls_indices = [instance['cls_indices'] for instance in instances]
+            if any(x.shape != cls_indices[0].shape for x in cls_indices):
+                batch['cls_indices'] = torch.nn.utils.rnn.pad_sequence(
+                    cls_indices,
+                    batch_first=True,
+                    padding_value=-1,
+                )
+            else:
+                batch['cls_indices'] = torch.stack(cls_indices, dim=0)
+        if 'random_idx' in instances[0]:
+            random_idxs = [instance['random_idx'] for instance in instances]
+            batch['random_idx'] = torch.stack(random_idxs, dim=0)
+        if 'class_name_embedding_indices' in instances[0]:
+            class_name_embedding_indices = [instance['class_name_embedding_indices'] for instance in instances]
+            class_name_embedding_indices = torch.nn.utils.rnn.pad_sequence(
+                class_name_embedding_indices,
+                batch_first=True,
+                padding_value=0)
+            batch['class_name_embedding_indices'] = class_name_embedding_indices
+        if 'refer_embedding_indices' in instances[0]:
+            refer_embedding_indices = [instance['refer_embedding_indices'] for instance in instances]
+            refer_embedding_indices = torch.nn.utils.rnn.pad_sequence(
+                refer_embedding_indices,
+                batch_first=True,
+                padding_value=0)
+            batch['refer_embedding_indices'] = refer_embedding_indices
+
+        return batch
+
+
+
+    
+@dataclass
+class DataCollatorForCOCODatasetV2_old(object):
     """Collate examples for supervised fine-tuning."""
 
     tokenizer: transformers.PreTrainedTokenizer
@@ -1041,4 +1157,6 @@ class DataCollatorForCOCODatasetV2(object):
                 padding_value=0)
             batch['refer_embedding_indices'] = refer_embedding_indices
 
+        # 查看prepare_inputs_labels函数的输入具体有哪些
+        # print("batch", batch.keys())
         return batch

@@ -144,19 +144,32 @@ class COCOInstanceNewBaselineDatasetMapper:
             image = utils.read_image(dataset_dict["file_name"], format='RGB')
         else:
             image = np.array(dataset_dict["file_name"])
+        # print(dataset_dict)
+        # print(image)
         utils.check_image_size(dataset_dict, image)
         utils.check_image_size(dataset_dict, image)
+
+        #为了适配eval_ego脚本增加
+        gt_masks_list = []
+        for ann in dataset_dict["annotations"]:
+            mask_tmp = decode(ann["segmentation"])
+            gt_masks_list.append(mask_tmp)
+        dataset_dict["gt_mask_list"] = gt_masks_list
+        # dataset_dict["region_masks"] = gt_masks_list
+        dataset_dict["vp_file_path"] = dataset_dict["vp_image"]
 
         # TODO: get padding mask
         # by feeding a "segmentation mask" to the same transforms
         padding_mask = np.ones(image.shape[:2])
 
+        #transforms,将对exo图像的变换记录了下来，这里的对图像的变换是resize、crop
         image, transforms = T.apply_transform_gens(self.tfm_gens, image)
         # the crop transformation has default padding value 0 for segmentation
         padding_mask = transforms.apply_segmentation(padding_mask)
         padding_mask = ~ padding_mask.astype(bool)
 
         image_shape = image.shape[:2]  # h, w
+        # print("exo_image_shape:", image_shape)
 
         # Pytorch's dataloader is efficient on torch.Tensor due to shared-memory,
         # but not efficient on large generic data structures due to the use of pickle & mp.Queue.
@@ -177,12 +190,17 @@ class COCOInstanceNewBaselineDatasetMapper:
             # by feeding a "segmentation mask" to the same transforms
             vp_padding_mask = np.ones(vp_image.shape[:2])
 
+            #变换到1024
             vp_image, vp_transforms = T.apply_transform_gens(self.tfm_gens, vp_image)
             # the crop transformation has default padding value 0 for segmentation
+            # print("vp_image final_shape:", vp_image.shape)
             vp_padding_mask = vp_transforms.apply_segmentation(vp_padding_mask)
+            # print(vp_padding_mask.shape)
             vp_padding_mask = ~ vp_padding_mask.astype(bool)
 
+            #1024x1024
             vp_image_shape = vp_image.shape[:2]  # h, w
+            # print("vp_image_shape:", vp_image_shape)
 
             # Pytorch's dataloader is efficient on torch.Tensor due to shared-memory,
             # but not efficient on large generic data structures due to the use of pickle & mp.Queue.
@@ -193,6 +211,14 @@ class COCOInstanceNewBaselineDatasetMapper:
             dataset_dict['vp_transforms'] = vp_transforms
             vp_region_masks = []
             vp_fill_number = []
+            # print(f"vp_image_shape:{vp_image_shape}")
+            # print(dataset_dict.pop("vp_annotations")[0])
+            #这里的obj是exo每一帧中的mask
+            #对该帧下每个物体的mask进行与vp-image相同的变换
+
+
+            #这里的vp_image_shape是变换后的目标大小，所以应该是1024x1024
+            #vp_annos存储的是经过变换后的参考帧的所有物体mask
             vp_annos = [
                 utils.transform_instance_annotations(obj, vp_transforms, vp_image_shape)
                 for obj in dataset_dict.pop("vp_annotations")
@@ -206,10 +232,11 @@ class COCOInstanceNewBaselineDatasetMapper:
                     vp_fill_number.append(int(vp_anno['category_id']))
                     # vp_scale_region_mask = transforms.apply_segmentation(vp_region_mask)
                     vp_region_masks.append(vp_region_mask)
-
+            #vp_region_masks存储的是参考帧里的所有RLE格式的coco mask
 
 
         if "annotations" in dataset_dict:
+            #print("annotations in dataset_dict") # YES
             # USER: Modify this if you want to keep them for some reason.
             for anno in dataset_dict["annotations"]:
                 # Let's always keep mask
@@ -220,6 +247,7 @@ class COCOInstanceNewBaselineDatasetMapper:
             annotations = dataset_dict['annotations']
 
             # USER: Implement additional transformations if you have other types of data
+            #annos存储的是target帧中所有经过变换的物体mask
             annos = [
                 utils.transform_instance_annotations(obj, transforms, image_shape)
                 for obj in dataset_dict.pop("annotations")
@@ -227,13 +255,27 @@ class COCOInstanceNewBaselineDatasetMapper:
             ]
             if len(annos) ==0:
                 print('error')
+                #print(dataset_dict["file_name"]) #debug
 
             filter_annos = []
 
-            if 'point_visual_prompt_mask' in annos[0]:
+            #到这里只处理了anno['segmentation'],anno['mask_visual_prompt_mask']还是RLE格式的
+            # print("annos:", annos[0])
+            # if 'point_visual_prompt_mask' in annos[0]:
+            '''
+            确定anno中是哪种形式的mask。这里需要根据交互式任务的不同到getitem中对anno={"segmentation","area","class_id"}进行修改，
+            把原生的segmentation替换为{"mask_visual_prompt_mask","point_visual_prompt_mask",..."area","class_id"}的形式
+            '''
+
+            if 'mask_visual_prompt_mask' in annos[0]:
                 if region_mask_type is None:
-                    region_mask_type = ['point_visual_prompt_mask', 'mask_visual_prompt_mask', 'box_visual_prompt_mask',
-                                        'scribble_visual_prompt_mask']
+                    # region_mask_type = ['point_visual_prompt_mask', 'mask_visual_prompt_mask', 'box_visual_prompt_mask',
+                    #                     'scribble_visual_prompt_mask']
+                    #根据任务的不同进行替换，前提是anno中必须有这个键，要不然会报错
+                    region_mask_type = ['mask_visual_prompt_mask']
+
+
+                #这里的意思是同一个物体可能有许多不同格式的mask，把同一个物体所有不同格式的mask类型都取出来放在non_empty_masks中
                 for anno in annos:
                     non_empty_masks = []
                     for mask_type in region_mask_type:
@@ -242,6 +284,8 @@ class COCOInstanceNewBaselineDatasetMapper:
                     # assert non_empty_masks, 'No visual prompt found in {}'.format(dataset_dict['file_name'])
                     if len(non_empty_masks) == 0:
                         continue
+                    #对于每个物体，每次随机地选择一种mask类型
+                    #region_masks里存储的是解码，且经过变换后的物体mask
                     used_mask_type = random.choice(non_empty_masks)
                     region_mask = decode(anno[used_mask_type])
                     if used_mask_type in ['point_visual_prompt_mask', 'scribble_visual_prompt_mask']:
@@ -298,9 +342,11 @@ class COCOInstanceNewBaselineDatasetMapper:
                 instances.vp_region_masks = vp_region_masks
                 instances.vp_fill_number = torch.tensor(vp_fill_number, dtype=torch.int64)
 
-
+            # print("instances:", instances)
+            # coco mapper中的instances实际上就是一个帧中的所有物体
             dataset_dict["instances"] = instances
-
+            #print ('instances:', instances)
+            #print("dataset_dict:", dataset_dict.keys())
         return dataset_dict
 
 

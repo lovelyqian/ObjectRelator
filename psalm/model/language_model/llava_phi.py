@@ -25,7 +25,8 @@ from ..mask_decoder.Mask2Former_Simplify.modeling.pixel_decoder.msdeformattn imp
 from ..multimodal_projector.builder import build_vision_projector
 from ..multimodal_encoder.swin_trans import build_swin_b, build_swin_l
 
-
+#新增一个resize2exosize的mapper，使得在eval_davis创建preprocessor的时候可以切换
+from ..datasets_mapper.coco_instance_mapper_exosize import COCOInstanceNewBaselineDatasetMapper as COCOresize
 from ..datasets_mapper.coco_instance_mapper import COCOInstanceNewBaselineDatasetMapper
 from ..datasets_mapper.coco_panoptic_mapper import COCOPanopticNewBaselineDatasetMapper
 from ..datasets_mapper.coco_semantic_mapper import COCOSemanticNewBaselineDatasetMapper
@@ -67,6 +68,7 @@ class PSALMModel(LlavaMetaModel, PhiModel):
             self.vision_tower.image_processor['panoptic'] = COCOPanopticNewBaselineDatasetMapper(self.cfg)
             self.vision_tower.image_processor['instance'] = COCOInstanceNewBaselineDatasetMapper(self.cfg)
             self.vision_tower.image_processor['semantic'] = COCOSemanticNewBaselineDatasetMapper(self.cfg)
+            self.vision_tower.image_processor['instance_resize'] = COCOresize(self.cfg)
 
 
     def get_vision_tower(self):
@@ -290,6 +292,8 @@ class PSALM(PhiForCausalLM, LlavaMetaForCausalLM):
             self.panoptic_on = False
             self.referring_on = True
             self.region_on = False
+
+        #debug: 将region_on和referring_on同时打开
         elif cfg.MODEL.MASK_FORMER.SEG_TASK == 'region':
             self.semantic_on = False
             self.instance_on = False
@@ -764,6 +768,7 @@ class PSALM(PhiForCausalLM, LlavaMetaForCausalLM):
             cur_new_region_embedding_mask = torch.cat(cur_new_region_embedding_mask, dim=0)
 
         return cur_new_input_embeds, cur_new_label, cur_new_seg_query_mask, cur_class_name_embedding_indices, cur_new_region_embedding_mask, cur_refer_embedding_indices
+    
     def prepare_inputs_labels_for_multimodal(
             self, input_ids, attention_mask, past_key_values, labels, images, class_name_embedding_indices=None,
             class_name_ids=None, cls_indices=None, instances=None, token_refer_id=None, refer_embedding_indices=None
@@ -789,6 +794,7 @@ class PSALM(PhiForCausalLM, LlavaMetaForCausalLM):
         expanded_seg_query = self.seg_query.unsqueeze(0).expand(input_ids.shape[0], -1, -1)
 
         if (input_ids == REGION_TOKEN_INDEX).sum() != 0 and instances is not None:
+            # print("instances:", instances)
             region_masks_list = [instance.region_masks.tensor for instance in instances]
 
             # [region_features_per_batch: [num_region, 1, dims]], len(region_features) = batch_size
@@ -1450,10 +1456,14 @@ class PSALM(PhiForCausalLM, LlavaMetaForCausalLM):
                                                                                    class_name_cls_result.float(),
                                                                                    mask_pred_result.float())
                 processed_results[-1]["panoptic_seg"] = panoptic_r
+           
+            # print("self.referring_on",self.referring_on) #debug
             if self.referring_on:
                 instance_r = retry_if_cuda_oom(self.SEG_instance_inference)(SEG_cls_result.float(),
                                                                             mask_pred_result.float())
                 processed_results[-1]["instances"] = instance_r
+            
+            # print("self.region_on",self.region_on) #debug
             if self.region_on:
                 gt = _seg_info['instances'].gt_masks
                 gt_result = retry_if_cuda_oom(sem_seg_postprocess)(
@@ -1464,8 +1474,6 @@ class PSALM(PhiForCausalLM, LlavaMetaForCausalLM):
                                                                             mask_pred_result.float())
                 processed_results[-1]["instances"] = instance_r
                 processed_results[-1]["gt"] = gt_result
-
-
 
 
 
@@ -1633,9 +1641,9 @@ class PSALMForDAVISEval(PSALM):
 
 
 
-
-
             return processed_results
+
+
     def prepare_inputs_labels_for_multimodal(
             self, input_ids, attention_mask, past_key_values, labels, images, vp_images=None, class_name_embedding_indices=None,
             class_name_ids=None, cls_indices=None, instances=None, token_refer_id=None, refer_embedding_indices=None
@@ -1842,6 +1850,7 @@ class PSALMForDAVISEval(PSALM):
                 assert attention_mask.shape == new_input_embeds.shape[:2]
 
         return None, attention_mask, past_key_values, new_input_embeds, new_labels, new_seg_query_masks, new_class_name_embedding_indices, new_region_embedding_masks, new_refer_embedding_indices
+   
     def eval_video(
             self,
             input_ids: torch.LongTensor = None,
@@ -1876,6 +1885,7 @@ class PSALMForDAVISEval(PSALM):
             instances = [i['instances'] for i in seg_info]
         else:
             instances = None
+       
         input_ids, attention_mask, past_key_values, inputs_embeds, labels, seg_query_mask, class_name_embedding_indices, region_embedding_masks, refer_embedding_indices = self.prepare_inputs_labels_for_multimodal(
             input_ids, attention_mask, past_key_values, labels, images,vp_images, class_name_embedding_indices,
             class_name_ids, cls_indices, instances, token_refer_id, refer_embedding_indices)
@@ -1980,10 +1990,14 @@ class PSALMForDAVISEval(PSALM):
                                                                                    class_name_cls_result.float(),
                                                                                    mask_pred_result.float())
                 processed_results[-1]["panoptic_seg"] = panoptic_r
+           
+            # print("self.referring_on",self.referring_on) #debug
             if self.referring_on:
                 instance_r = retry_if_cuda_oom(self.SEG_instance_inference)(SEG_cls_result.float(),
                                                                             mask_pred_result.float())
                 processed_results[-1]["instances"] = instance_r
+            
+            # print("self.region_on",self.region_on) #debug
             if self.region_on:
                 gt = _seg_info['instances'].gt_masks
                 gt_result = retry_if_cuda_oom(sem_seg_postprocess)(

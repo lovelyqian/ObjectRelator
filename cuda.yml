@@ -1,0 +1,9 @@
+name: cuda2
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.11.*
+  - nvidia/label/cuda-11.8.0::cuda=11.8.0
+  - nvidia/label/cuda-11.8.0::cuda-nvcc 

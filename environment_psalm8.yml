@@ -1,0 +1,13 @@
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.11.*
+  - cudatoolkit
+  - numpy
+  - pip
+postinstall: |
+    cd /home/yuqian_fu/Projects/PSALM
+    
+ 

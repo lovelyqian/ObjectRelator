@@ -15,7 +15,8 @@ import cv2
 from torch.utils.data import Dataset, DataLoader
 
 from psalm import conversation as conversation_lib
-from psalm.train.train_datasets import DataCollatorForCOCODatasetV2, RefCOCO_dataset
+# from psalm.train.train_datasets import DataCollatorForCOCODatasetV2, RefCOCO_dataset
+from psalm.eval.multicondition_dataset import Multicondition_Dataset, DataCollatorForCOCODatasetV2
 
 from detectron2.data import MetadataCatalog, DatasetCatalog
 from pycocotools import mask
@@ -220,7 +221,7 @@ def evaluation():
     conversation_lib.default_conversation = conversation_lib.conv_templates[data_args.version]
 
     data_args.refcoco_image_folder = data_args.image_folder
-    eval_dataset = RefCOCO_dataset(json_path=data_args.json_path, tokenizer=tokenizer, data_args=data_args)
+    eval_dataset = Multicondition_Dataset(json_path=data_args.json_path, tokenizer=tokenizer, data_args=data_args)
     data_collator = DataCollatorForCOCODatasetV2(tokenizer=tokenizer)
     dataloader_params = {
         "batch_size": data_args.eval_batch_size,
@@ -267,11 +268,15 @@ def evaluation():
                     else:
                         segm = mask.decode(annotation['segmentation'])
                     masks.append(segm.astype(np.bool_))
-            assert len(masks) == 1
+            # assert len(masks) == 1  #debug
             gt_mask = masks[0].astype(np.uint8)
 
             inputs = {k: v.to(device) if torch.is_tensor(v) else v for k, v in inputs.items()}
+            print("token_refer_id:", inputs['token_refer_id']) #debug
             inputs['token_refer_id'] = [ids.to(device) for ids in inputs['token_refer_id']]
+            print("input_keys:", inputs.keys()) #debug
+            print("input_ids", inputs['input_ids']) #debug
+            print("refer_embedding_indices:", inputs['refer_embedding_indices']) #debug
             outputs = model.eval_seg(
                 input_ids=inputs['input_ids'],
                 attention_mask=inputs['attention_mask'],
@@ -292,10 +297,10 @@ def evaluation():
     giou = acc_iou_meter.avg[1]
     msg = "benchmark: {}: giou: {:.4f}, ciou: {:.4f}".format(save_suffix, giou, ciou)
     print(msg)
-    save_path = os.path.join(data_args.model_path,'pred_pkl')
-    Path(save_path).mkdir(parents=True,exist_ok=True)
-    with open(os.path.join(save_path,f'pred_{save_suffix}.txt'),'w') as f:
-        f.write(msg)
+    # save_path = os.path.join(data_args.model_path,'pred_pkl')
+    # Path(save_path).mkdir(parents=True,exist_ok=True)
+    # with open(os.path.join(save_path,f'pred_{save_suffix}.txt'),'w') as f:
+    #     f.write(msg)
 
 
 
