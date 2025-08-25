@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "psalm"
+name = "objectrelator"
 version = "0.0.1"
-description = "Pixelwise SegmentAtion with Large Multi-Modal Model"
+description = "ObjRelator: Enabling Cross-View Object Relation Understanding Across Ego-Centric and Exo-Centric Perspectives"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -27,9 +27,6 @@ dependencies = [
     "gradio_client==0.2.9", "transformers==4.36.2",
 ]
 
-[project.urls]
-"Homepage" = "https://github.com/zamling/PSALM"
-"Bug Tracker" = "https://github.com/zamling/PSALM/issues"
 
 [tool.setuptools.packages.find]
 exclude = ["assets*", "benchmark*", "docs", "dist*", "playground*", "scripts*", "tests*"]

@@ -15,14 +15,14 @@ After preparing the required environment, run the following command to compile C
 `CUDA_HOME` must be defined and points to the directory of the installed CUDA toolkit.
 
 ```bash
-cd psalm/model/mask_decoder/Mask2Former_Simplify/modeling/pixel_decoder/ops
+cd objectrelator/model/mask_decoder/Mask2Former_Simplify/modeling/pixel_decoder/ops
 sh make.sh
 ```
 
 ### Example conda environment setup
 
 ```bash
-conda create --name psalm python=3.10 -y
+conda create --name objectrelator python=3.10 -y
 conda activate psalm
 conda install pytorch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 pytorch-cuda=11.8 -c pytorch -c nvidia
 
@@ -34,9 +34,13 @@ pip install git+https://github.com/cocodataset/panopticapi.git
 pip install git+https://github.com/mcordts/cityscapesScripts.git
 
 cd ..
-git clone https://github.com/zamling/PSALM.git
-cd PSALM
+git clone https://github.com/lovelyqian/ObjectRelator.git
+cd ObjectRelator
 pip install -e .
 pip install opencv-python addict
 cd psalm/model/mask_decoder/Mask2Former_Simplify/modeling/pixel_decoder/ops
 sh make.sh
+pip install natsort
+pip install scikit-image
+pip install numpy==1.23.5
+```
