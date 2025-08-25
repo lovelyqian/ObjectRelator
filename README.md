@@ -6,6 +6,13 @@
 [Paper](https://arxiv.org/abs/2411.19083) 🌟
 [Project Page](http://yuqianfu.com/ObjectRelator/) 🚀
 
+
+## Updates
+- [08/2025] Data, models, codes, and training/testing scripts are released. 🔧
+- [07/2025] [Project website](http://yuqianfu.com/ObjectRelator/) is released. 📖
+- [06/2025] Our paper is accepted by ICCV 25 (Highlight Paper). 🎉
+- [06/2025] We were awarded 2nd place in the Correspondences track of the 2025 EgoVis Ego-Exo4D Challenge. [Technical report](https://arxiv.org/pdf/2506.05856?) 🏅
+
 ### Features
 
 * 🔥**Ego-Exo Object Correspondence Task:** We conduct an early exploration of this challenging task, analyzing its unique difficulties, constructing several baselines, and proposing a new method.
@@ -16,14 +23,10 @@
 
   ![](assets/teaser.png)
   
-  ![](assets/merged.gif)
+  ![](assets/compressed-compressed-demo.gif)
 
-## Updates
+  More video demos can be found: http://yuqianfu.com/ObjectRelator/. 
 
-- [x] Release evaluation code
-- [x] Release training code
-- [x] Release data
-- [x] Release model
 
 ## Installation
 
@@ -35,11 +38,11 @@ See [Prepare Datasets for ObjectRelator.](docs/DATASET.md)
 
 ## Model Zoo & Quick Start
 
-See [Quick Start With ObjectRelator.](docs/Model Zoo & Quick Start.md)
+See [Quick Start With ObjectRelator.](docs/ModelZoo_QuickStart.md)
 
 ## Train & Evaluation
 
-See [Train & Evaluation.](docs/Train & Evaluation.md)
+See [Train & Evaluation.](docs/Train_Evaluation.md)
 
 ## Citation
 
