@@ -1,17 +1,18 @@
 # **ObjectRelator: Enabling Cross-View Object Relation Understanding Across Ego-Centric and Exo-Centric Perspectives (ICCV 2025 Highlight)**
 
-> #### Yuqian Fu, Runze Wang, Bin Ren, Guolei Sun, Biao Gong, Yanwei Fu, Danda Pani Paudel, Xuanjing Huang, Luc Van Goo
+> #### Yuqian Fu, Runze Wang, Bin Ren, Guolei Sun, Biao Gong, Yanwei Fu, Danda Pani Paudel, Xuanjing Huang, Luc Van Gool
 >
 
-[Arxiv Paper](https://arxiv.org/abs/2411.19083)
+[Paper](https://arxiv.org/abs/2411.19083) 🌟
+[Project Page](http://yuqianfu.com/ObjectRelator/) 🚀
 
 ### Features
 
-* **Ego-Exo Object Correspondence Task:** We conduct an early exploration of this challenging task, analyzing its unique difficulties, constructing several baselines, and proposing a new method.
+* 🔥**Ego-Exo Object Correspondence Task:** We conduct an early exploration of this challenging task, analyzing its unique difficulties, constructing several baselines, and proposing a new method.
 
-* **ObjectRelator Framework:** We introduce ObjectRelator, a cross-view object segmentation method combining MCFuse and XObjAlign. MCFuse first introduces the text modality into this task and improves localization using multimodal cues for the same object(s), while XObjAlign boosts performance under appearance variations with an object-level consistency constraint.
+* 🔥**ObjectRelator Framework:** We introduce ObjectRelator, a cross-view object segmentation method combining MCFuse and XObjAlign. MCFuse first introduces the text modality into this task and improves localization using multimodal cues for the same object(s), while XObjAlign boosts performance under appearance variations with an object-level consistency constraint.
 
-* **New Testbed** & **SOTA Results:** Alongside Ego-Exo4D, we present HANDAL-X as an additional benchmark. Our proposed ObjectRelator achieves state-of-the-art (SOTA) results on both datasets.
+* 🔥**New Testbed** & **SOTA Results:** Alongside Ego-Exo4D, we present HANDAL-X as an additional benchmark. Our proposed ObjectRelator achieves state-of-the-art (SOTA) results on both datasets.
 
   ![](assets/teaser.png)
   
