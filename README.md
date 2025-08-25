@@ -44,6 +44,17 @@ See [Quick Start With ObjectRelator.](docs/ModelZoo_QuickStart.md)
 
 See [Train & Evaluation.](docs/Train_Evaluation.md)
 
+## Comparative Results
+
+<img width="1342" height="500" alt="image" src="https://github.com/user-attachments/assets/b3698002-0aed-4bb0-8b53-2ca4314812b8" />
+
+Results on val set, main results from our [ICCV25 paper](https://arxiv.org/pdf/2411.19083).
+
+<img width="1385" height="282" alt="image" src="https://github.com/user-attachments/assets/6ba16b7b-6e57-4c89-99d2-95a72c1d77ac" />
+
+Results on test set, same as [EgoExo4D Correspondence Challenge](https://eval.ai/web/challenges/challenge-page/2288/) and our [technical report](https://arxiv.org/pdf/2506.05856?).
+
+
 ## Citation
 
 If you think this work is useful for your research, please use the following BibTeX entry.
