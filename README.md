@@ -3,8 +3,7 @@
 > #### Yuqian Fu, Runze Wang, Bin Ren, Guolei Sun, Biao Gong, Yanwei Fu, Danda Pani Paudel, Xuanjing Huang, Luc Van Gool
 >
 
-[Paper](https://arxiv.org/abs/2411.19083) 🌟
-[Project Page](http://yuqianfu.com/ObjectRelator/) 🚀
+[Paper](https://arxiv.org/abs/2411.19083) 🌟 [Project Page](https://objectrelator.ai/) 🚀
 
 
 ## Updates
