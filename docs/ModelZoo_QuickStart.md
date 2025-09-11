@@ -6,11 +6,11 @@ We release our ObjRelator model below,  you can use it for quick inference on cr
 
 | Version       | Checkpoint |
 | ------------- | ---------- |
-| Ego2Exo-Small | link       |
-| Ego2Exo-Full  | link       |
-| Exo2Ego-Small | link       |
-| Exo2Ego-Full  | link       |
-| Joint         | link       |
+| Ego2Exo-Small | [link](https://huggingface.co/wangzeze/ObjectRelator-Ego2Exo-Small)       |
+| Ego2Exo-Full  | [link](https://huggingface.co/wangzeze/ObjectRelator-Ego2Exo-Full)        |
+| Exo2Ego-Small | [link](https://huggingface.co/wangzeze/ObjectRelator-Exo2Ego-Small)       |
+| Exo2Ego-Full  | [link](https://huggingface.co/wangzeze/ObjectRelator-Exo2Ego-Full)        |
+| Joint         | [link](https://huggingface.co/wangzeze/ObjectRelator-Joint)               |
 
 If you want to train from scratch, please download the checkpoint files related to PSALM:
 
